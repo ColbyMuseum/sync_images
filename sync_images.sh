@@ -3,7 +3,9 @@
 # sync_images.sh: Sync collection of JPEG2000s to a directory of TIFF files
 
 # TODO:
-# CRON schedule: weekly (Mon at 3am?)
+# - [x] Respect existing folder hierarchies
+# - [ ] Redo profile conversion with `convert`
+# - [ ] Schedule weekly (Mon at 3am?)
 
 SRC_DIR="/path/to/PM-Tiffs"
 DEST_DIR="/path/to/JP2s"
@@ -20,6 +22,8 @@ KAKADU_OPTS="-rate 2.4,1.48331273,.91673033,.56657224,.35016049,.21641118,.13374
  -no_weights"
 
 KAKADU_PATH="/opt/kakadu/bin"
+
+KAKADU_MOCK=false
 
 try_compress() {
 
@@ -98,17 +102,25 @@ for i in "$@" ; do
     esac
 done
 
-for image in "$SRC_DIR"/* ; do
+for image in `find "$SRC_DIR" -type f` ; do
 
-    image_name=$(basename "$image")
-    jp2="$DEST_DIR"/"${image_name%.*}.jp2"
+    path_tail=${image##$SRC_DIR}
+    dest_tail="${path_tail%.*}.jp2"
 
-    if [ -f "$jp2" ] && [ "$OVERWRITE" = false ]; then
-        echo "A file named $jp2 already exists, skipping"
+    # FIXME: subtract $SRC_DIR from $image, then get the dirname
+    dest_path="$DEST_DIR/$dest_tail"
+
+    if [ -f "$dest_path" ] && [ "$OVERWRITE" = false ]; then
+        echo "A file named $dest_path already exists, skipping"
         continue
     else
-        echo "Compressing $image"
-        try_compress "$image" "$jp2"
+        echo "Compressing $image to $dest_path"
+        if [ "$KAKADU_MOCK" = true ]; then
+            touch "$dest_path"
+        else
+            try_compress "$image" "$dest_path"
+        fi
+
     fi
 
 done
